@@ -1,14 +1,19 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Search, SlidersHorizontal, Download, X, ExternalLink,
-  ChevronUp, ChevronDown, FolderPlus, CheckCircle, XCircle, Clock,
+  ChevronUp, ChevronDown, FolderPlus, CheckCircle, XCircle, Clock, Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { extractIndicators } from '../lib/indicatorExtraction';
+import { hashAdvertisementImage, type AdvertisementImageMetadata } from '../lib/imageHash';
+import { findRelatedAdvertisementsFor } from '../lib/relatedAds';
+import { createEvidenceRecord } from '../lib/evidence';
 import AppShell from '../components/layout/AppShell';
 import Modal from '../components/ui/Modal';
 import RiskMeter from '../components/ui/RiskMeter';
 import RiskBreakdown from '../components/ui/RiskBreakdown';
+import AdvertisementIngestion from '../components/ingestion/AdvertisementIngestion';
 import { useApp } from '../context/AppContext';
 import {
   riskBadgeClass, categoryLabel, statusLabel, statusBadgeClass,
@@ -24,7 +29,7 @@ const CATEGORIES: AdCategory[] = [
   'bank_account_sale', 'atm_card_rental', 'identity_credential',
   'money_mule_recruitment', 'crypto_wallet', 'payment_account',
 ];
-const PLATFORMS: Platform[] = ['Telegram', 'Facebook', 'Twitter/X', 'Dark Web Forum', 'WhatsApp', 'Reddit', 'Instagram'];
+const PLATFORMS: Platform[] = ['Telegram', 'Facebook', 'Twitter/X', 'Dark Web Forum', 'WhatsApp', 'Reddit', 'Instagram', 'Other'];
 const STATUSES = ['flagged', 'under_review', 'confirmed_threat', 'dismissed'];
 
 // Sort icon as a plain function (not a hook) to avoid rules-of-hooks violation
@@ -35,8 +40,35 @@ function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; s
     : <ChevronDown className="w-3 h-3 text-accent" />;
 }
 
+function HighlightedAdvertisementText({ text, indicators }: { text: string; indicators: ReturnType<typeof extractIndicators> }) {
+  const matches = indicators
+    .filter(indicator => indicator.source === 'content')
+    .map(indicator => ({ value: indicator.matchedValue, index: text.toLowerCase().indexOf(indicator.matchedValue.toLowerCase()) }))
+    .filter(match => match.index >= 0)
+    .sort((a, b) => a.index - b.index || b.value.length - a.value.length);
+
+  const visibleMatches: typeof matches = [];
+  let end = 0;
+  for (const match of matches) {
+    if (match.index < end) continue;
+    visibleMatches.push(match);
+    end = match.index + match.value.length;
+  }
+
+  if (visibleMatches.length === 0) return <>{text}</>;
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  visibleMatches.forEach((match, index) => {
+    parts.push(text.slice(cursor, match.index));
+    parts.push(<mark key={`${match.index}-${index}`} className="bg-medium-bg text-navy rounded px-0.5">{text.slice(match.index, match.index + match.value.length)}</mark>);
+    cursor = match.index + match.value.length;
+  });
+  parts.push(text.slice(cursor));
+  return <>{parts}</>;
+}
+
 export default function AdvertisementAnalysis() {
-  const { state, updateAdStatus, addInvestigation, updateInvestigation } = useApp();
+  const { state, updateAdStatus, addInvestigation, updateInvestigation, addEvidence } = useApp();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -55,6 +87,12 @@ export default function AdvertisementAnalysis() {
   // Detail panel
   const [selectedId, setSelectedId] = useState<string | null>(searchParams.get('id'));
   const [addToInvModal, setAddToInvModal] = useState(false);
+  const [ingestionOpen, setIngestionOpen] = useState(false);
+  const [imageMetadata, setImageMetadata] = useState<{ advertisementId: string; metadata: AdvertisementImageMetadata } | null>(null);
+  const [relatedToLinkId, setRelatedToLinkId] = useState<string | null>(null);
+  const [evidenceModal, setEvidenceModal] = useState(false);
+  const [evidenceInvestigationId, setEvidenceInvestigationId] = useState('');
+  const [evidenceNotes, setEvidenceNotes] = useState('');
 
   const ads = state.advertisements;
   const investigations = state.investigations;
@@ -85,6 +123,26 @@ export default function AdvertisementAnalysis() {
   }, [ads, search, filterRisk, filterCat, filterPlatform, filterStatus, sortKey, sortDir]);
 
   const selected = ads.find(a => a.id === selectedId) ?? null;
+  const selectedIndicators = useMemo(
+    () => selected ? extractIndicators(selected) : [],
+    [selected],
+  );
+  const relatedMatches = useMemo(
+    () => selected ? findRelatedAdvertisementsFor(selected, ads) : [],
+    [selected, ads],
+  );
+
+  async function handleImageSelection(file: File | undefined) {
+    if (!file) return;
+    try {
+      const metadata = await hashAdvertisementImage(file);
+      setImageMetadata(selected ? { advertisementId: selected.id, metadata } : null);
+      toast.success('Image metadata captured. OCR is not available in this prototype.');
+    } catch (error) {
+      setImageMetadata(null);
+      toast.error(error instanceof Error ? error.message : 'Unable to process image.');
+    }
+  }
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -105,23 +163,27 @@ export default function AdvertisementAnalysis() {
   // FIX: properly link ad to an EXISTING investigation (was creating a new one before)
   function handleLinkToExistingInvestigation(inv: typeof investigations[0]) {
     if (!selected) return;
-    if (inv.linkedAdIds.includes(selected.id)) {
-      toast.info(`${selected.id} is already linked to this investigation`);
+    const idsToLink = [selected.id, relatedToLinkId].filter((id): id is string => Boolean(id));
+    const newIds = idsToLink.filter(id => !inv.linkedAdIds.includes(id));
+    if (newIds.length === 0) {
+      toast.info('These advertisements are already linked to this investigation');
       setAddToInvModal(false);
       return;
     }
     const updated = {
       ...inv,
-      linkedAdIds: [...inv.linkedAdIds, selected.id],
+      linkedAdIds: [...inv.linkedAdIds, ...newIds],
       updatedAt: new Date().toISOString(),
     };
     updateInvestigation(updated);
-    toast.success(`Linked to "${inv.title.slice(0, 40)}…"`);
+    toast.success(`Linked ${newIds.length} advertisement${newIds.length === 1 ? '' : 's'} to "${inv.title.slice(0, 40)}…"`);
     setAddToInvModal(false);
+    setRelatedToLinkId(null);
   }
 
   function handleCreateInvestigation() {
     if (!selected) return;
+    const linkedAdIds = [selected.id, relatedToLinkId].filter((id): id is string => Boolean(id));
     const inv = {
       id: generateId(),
       title: `Investigation — ${selected.title.slice(0, 50)}`,
@@ -129,7 +191,7 @@ export default function AdvertisementAnalysis() {
       updatedAt: new Date().toISOString(),
       status: 'open' as const,
       priority: selected.riskLevel,
-      linkedAdIds: [selected.id],
+      linkedAdIds,
       notes: `Auto-created from advertisement ${selected.id}.\n\n`,
       analyst: 'A. Reyes',
       tags: selected.tags.slice(0, 3),
@@ -137,7 +199,24 @@ export default function AdvertisementAnalysis() {
     addInvestigation(inv);
     toast.success('Investigation created — navigating…');
     setAddToInvModal(false);
+    setRelatedToLinkId(null);
     navigate('/investigations');
+  }
+
+  function openRelatedAdvertisement(id: string) {
+    setSelectedId(id);
+    setSearchParams({ id });
+  }
+
+  function handleCreateEvidence() {
+    if (!selected) return;
+    const image = imageMetadata?.advertisementId === selected.id ? imageMetadata.metadata : undefined;
+    const record = createEvidenceRecord(selected, selectedIndicators, evidenceInvestigationId || undefined, image, evidenceNotes);
+    addEvidence(record);
+    toast.success(`Evidence ${record.id} created`);
+    setEvidenceModal(false);
+    setEvidenceInvestigationId('');
+    setEvidenceNotes('');
   }
 
   function handleExportCSV() {
@@ -197,6 +276,9 @@ export default function AdvertisementAnalysis() {
         </button>
         <button type="button" onClick={handleExportCSV} className="btn-secondary">
           <Download className="w-4 h-4" /> Export CSV
+        </button>
+        <button type="button" onClick={() => setIngestionOpen(true)} className="btn-primary">
+          <Upload className="w-4 h-4" /> Import Advertisements
         </button>
         </div>
       </div>
@@ -365,8 +447,88 @@ export default function AdvertisementAnalysis() {
               <div className="mb-4">
                 <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Advertisement Content</p>
                 <p className="text-xs text-navy-3 leading-relaxed bg-surface-2 rounded-lg p-3 font-mono whitespace-pre-wrap break-words">
-                  {selected.content}
+                  <HighlightedAdvertisementText text={selected.content} indicators={selectedIndicators} />
                 </p>
+              </div>
+
+              {/* Extracted indicators */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <p className="text-xs font-semibold text-muted uppercase tracking-wider">Extracted Indicators</p>
+                  <span className="text-[10px] text-muted">Automated signals</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {Array.from(new Set(selectedIndicators.map(indicator => indicator.type))).map(type => (
+                    <span key={type} className="chip text-[10px]">{type.replaceAll('_', ' ')} · {selectedIndicators.filter(indicator => indicator.type === type).length}</span>
+                  ))}
+                  {selectedIndicators.length === 0 && <span className="text-xs text-muted">No indicators extracted from this advertisement.</span>}
+                </div>
+                <div className="space-y-2">
+                  {selectedIndicators.map(indicator => (
+                    <div key={indicator.id} className="bg-surface-2 rounded-lg p-2.5 border border-border">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-xs font-semibold text-navy capitalize">{indicator.type.replaceAll('_', ' ')}</span>
+                        <span className="status-badge bg-accent-light text-accent border-accent-mid">Automated</span>
+                      </div>
+                      <p className="text-xs font-mono text-navy-3 mt-1 break-all">{indicator.maskedDisplayValue}</p>
+                      <p className="text-[11px] text-muted mt-1 leading-relaxed">{indicator.explanation}</p>
+                      <p className="text-[11px] text-navy-3 mt-1 italic break-words">“{indicator.sourceEvidence}”</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted mt-2">Extracted indicators are investigative leads, not proof. Investigator-confirmed findings remain separate from automated assessment.</p>
+                {selected.assessment === 'investigator_confirmed' && <p className="text-[11px] text-accent mt-1 font-semibold">Investigator-confirmed finding recorded.</p>}
+              </div>
+
+              {/* Related advertisements */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <p className="text-xs font-semibold text-muted uppercase tracking-wider">Related Advertisements</p>
+                  <span className="text-[10px] text-muted">{relatedMatches.length} lead{relatedMatches.length === 1 ? '' : 's'}</span>
+                </div>
+                {relatedMatches.length === 0 && <p className="text-xs text-muted bg-surface-2 rounded-lg p-3">No related advertisements found using the current similarity and shared-indicator checks.</p>}
+                <div className="space-y-2">
+                  {relatedMatches.map(match => {
+                    const related = ads.find(ad => ad.id === match.relatedAdvertisementId);
+                    if (!related) return null;
+                    return (
+                      <div key={match.id} className="bg-surface-2 rounded-lg p-3 border border-border">
+                        <div className="flex items-start justify-between gap-2">
+                          <button type="button" onClick={() => openRelatedAdvertisement(related.id)} className="text-left min-w-0 hover:text-accent">
+                            <p className="text-xs font-semibold text-navy truncate">{related.title}</p>
+                            <p className="text-[11px] text-muted">{related.platform} · {related.id}</p>
+                          </button>
+                          <span className={`badge ${riskBadgeClass(related.riskLevel)}`}>{related.riskScore}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {match.reasons.map(reason => <span key={`${reason.type}-${reason.matchedValue}`} className="chip text-[10px]">{reason.type.replaceAll('_', ' ')}</span>)}
+                        </div>
+                        <p className="text-[11px] text-muted mt-2 leading-relaxed">{match.reasons.map(reason => reason.explanation).join(' ')}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <button type="button" onClick={() => openRelatedAdvertisement(related.id)} className="btn-ghost text-[11px] px-0">Open advertisement</button>
+                          <button type="button" onClick={() => { setRelatedToLinkId(related.id); setAddToInvModal(true); }} className="btn-ghost text-[11px] px-0">Link to investigation</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {relatedMatches.length > 0 && <p className="text-[11px] text-muted mt-2">Shared indicators and similarity are investigative leads, not proof of coordinated activity.</p>}
+              </div>
+
+              {/* Optional image metadata */}
+              <div className="mb-4">
+                <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Optional Image Context</p>
+                <label className="btn-secondary text-xs w-full justify-center cursor-pointer">
+                  <Upload className="w-3 h-3" /> Add PNG, JPEG, or WebP image
+                  <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={event => void handleImageSelection(event.target.files?.[0])} />
+                </label>
+                <p className="text-[11px] text-muted mt-1.5">OCR is not available. The image is not analyzed for text or suspicious content.</p>
+                {imageMetadata?.advertisementId === selected.id && (
+                  <div className="mt-2 bg-surface-2 rounded-lg p-2.5 text-[11px] text-muted break-all">
+                    <p className="font-semibold text-navy">{imageMetadata.metadata.fileName} · {imageMetadata.metadata.mimeType}</p>
+                    <p>SHA-256: {imageMetadata.metadata.sha256}</p>
+                  </div>
+                )}
               </div>
 
               {/* Seller */}
@@ -430,6 +592,13 @@ export default function AdvertisementAnalysis() {
                   >
                     <FolderPlus className="w-3 h-3" /> Add to Investigation
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setEvidenceModal(true)}
+                    className="btn-secondary text-xs py-1.5 justify-center col-span-2"
+                  >
+                    Create Evidence Record
+                  </button>
                 </div>
                 <a
                   href={selected.sourceUrl}
@@ -454,7 +623,7 @@ export default function AdvertisementAnalysis() {
       >
         <div className="p-6 space-y-3">
           <p className="text-sm text-muted mb-4">
-            Create a new investigation for <span className="font-semibold text-navy">"{selected?.id}"</span>, or link to an existing open one.
+            Create a new investigation for <span className="font-semibold text-navy">"{selected?.id}"</span>{relatedToLinkId ? ` and related advertisement "${relatedToLinkId}"` : ''}, or link to an existing open one.
           </p>
           <button
             type="button"
@@ -487,6 +656,38 @@ export default function AdvertisementAnalysis() {
           )}
         </div>
       </Modal>
+      <Modal
+        open={evidenceModal}
+        onClose={() => setEvidenceModal(false)}
+        title="Create Evidence Record"
+        size="md"
+      >
+        <div className="p-6 space-y-4">
+          <p className="text-sm text-muted">Capture the current advertisement analysis as a local evidence record. Source provenance and investigator notes remain separate.</p>
+          <div className="bg-accent-light border border-accent-mid rounded-lg p-3 text-xs text-navy-3">
+            <p className="font-semibold text-navy">{selected?.id} · {selected?.title}</p>
+            <p className="mt-1">{selectedIndicators.length} extracted indicator{selectedIndicators.length === 1 ? '' : 's'} · Risk {selected?.riskScore}</p>
+            {imageMetadata?.advertisementId === selected?.id && <p className="mt-1">Image hash will be stored; the image binary will not.</p>}
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-muted block mb-1">Link to investigation (optional)</label>
+            <select className="select w-full text-sm" value={evidenceInvestigationId} onChange={event => setEvidenceInvestigationId(event.target.value)}>
+              <option value="">No investigation link</option>
+              {investigations.map(investigation => <option key={investigation.id} value={investigation.id}>{investigation.title}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-muted block mb-1">Investigator notes</label>
+            <textarea className="textarea min-h-24 text-sm" value={evidenceNotes} onChange={event => setEvidenceNotes(event.target.value)} placeholder="Add context or next steps; this is not source evidence." />
+          </div>
+          <p className="text-[11px] text-muted">SHA-256 verifies file identity only; it does not prove the original advertisement is authentic. OCR is not supported.</p>
+          <div className="flex justify-end gap-2 pt-2 border-t border-border">
+            <button type="button" onClick={() => setEvidenceModal(false)} className="btn-secondary">Cancel</button>
+            <button type="button" onClick={handleCreateEvidence} className="btn-primary">Create Evidence</button>
+          </div>
+        </div>
+      </Modal>
+      <AdvertisementIngestion open={ingestionOpen} onClose={() => setIngestionOpen(false)} />
     </AppShell>
   );
 }

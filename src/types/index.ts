@@ -19,7 +19,31 @@ export type Platform =
   | 'Dark Web Forum'
   | 'WhatsApp'
   | 'Reddit'
-  | 'Instagram';
+  | 'Instagram'
+  | 'Other';
+
+export type CollectionMethod =
+  | 'synthetic_demo'
+  | 'manual_entry'
+  | 'csv_import'
+  | 'json_import'
+  | 'public_source';
+
+export type IndicatorType =
+  | 'suspicious_phrase'
+  | 'account_offer'
+  | 'card_offer'
+  | 'phone_number'
+  | 'url'
+  | 'domain'
+  | 'payment_identifier'
+  | 'payment_phrase'
+  | 'credential_sharing'
+  | 'account_transfer';
+
+export type IndicatorSource = 'title' | 'content' | 'source_url' | 'seller_profile' | 'image_text';
+
+export type FindingAssessment = 'automated' | 'investigator_confirmed';
 
 // ─── Core Entities ───────────────────────────────────────────────────────────
 
@@ -39,6 +63,26 @@ export interface SellerProfile {
   contactMethod: string;
 }
 
+export interface AdvertisementProvenance {
+  sourceUrl: string;
+  platform: Platform;
+  capturedAt: string;
+  collectionMethod: CollectionMethod;
+}
+
+export interface ExtractedIndicator {
+  id: string;
+  /** Stable parent advertisement identifier for evidence and UI association. */
+  advertisementId: string;
+  type: IndicatorType;
+  matchedValue: string;
+  maskedDisplayValue: string;
+  source: IndicatorSource;
+  sourceEvidence: string;
+  explanation: string;
+  assessment: FindingAssessment;
+}
+
 export interface Advertisement {
   id: string;
   title: string;
@@ -56,6 +100,13 @@ export interface Advertisement {
   tags: string[];
   location?: string;
   priceOffered?: string;
+  /** Optional so existing synthetic records remain backward-compatible. */
+  provenance?: AdvertisementProvenance;
+  /** Populated by later analysis phases; existing records remain valid without it. */
+  indicators?: ExtractedIndicator[];
+  /** Optional hash for a locally selected image; image content is never stored here. */
+  imageHash?: string;
+  assessment?: FindingAssessment;
 }
 
 export interface Investigation {
@@ -69,6 +120,83 @@ export interface Investigation {
   notes: string;
   analyst: string;
   tags: string[];
+}
+
+export interface EvidenceHistoryEntry {
+  action: 'created' | 'updated' | 'linked' | 'unlinked';
+  timestamp: string;
+  actor: string;
+  note?: string;
+}
+
+export type EvidenceType = 'advertisement_snapshot' | 'image_attachment';
+
+export interface EvidenceRecord {
+  id: string;
+  advertisementId: string;
+  evidenceType: EvidenceType;
+  investigationId?: string;
+  sourceUrl: string;
+  platform: Platform;
+  capturedAt: string;
+  collectionMethod: CollectionMethod;
+  matchedIndicators: ExtractedIndicator[];
+  riskExplanation: RiskReason[];
+  /** Notes added by the investigator, kept separate from source evidence. */
+  investigatorNotes: string;
+  createdAt: string;
+  history: EvidenceHistoryEntry[];
+  fileHash?: string;
+  fileName?: string;
+  fileMimeType?: string;
+  fileSize?: number;
+}
+
+export type RelatedMatchReasonType = 'text_similarity' | 'shared_url' | 'shared_domain' | 'matching_phone' | 'matching_payment_identifier' | 'matching_image_hash';
+
+export interface RelatedMatchReason {
+  type: RelatedMatchReasonType;
+  matchedValue: string;
+  explanation: string;
+}
+
+export interface RelatedAdvertisementMatch {
+  id: string;
+  advertisementId: string;
+  relatedAdvertisementId: string;
+  reasons: RelatedMatchReason[];
+  similarityScore?: number;
+  detectedAt: string;
+  isInvestigativeLead: true;
+}
+
+export type AlertType = 'high_risk' | 'related_pattern' | 'new_evidence';
+
+export type AlertStatus = 'new' | 'acknowledged' | 'investigating' | 'resolved' | 'dismissed';
+
+export interface AlertAuditEntry {
+  action: 'created' | 'acknowledged' | 'investigating' | 'resolved' | 'dismissed' | 'linked' | 'unlinked' | 'updated';
+  timestamp: string;
+  actor: string;
+  note?: string;
+}
+
+export interface Alert {
+  id: string;
+  type: AlertType;
+  severity: RiskLevel;
+  title: string;
+  summary: string;
+  advertisementIds: string[];
+  supportingIndicatorIds: string[];
+  supportingEvidenceIds: string[];
+  advertisementId?: string;
+  evidenceId?: string;
+  investigationId?: string;
+  createdAt: string;
+  status: AlertStatus;
+  auditHistory: AlertAuditEntry[];
+  read: boolean;
 }
 
 export interface ReportPeriod {

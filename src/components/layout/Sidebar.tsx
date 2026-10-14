@@ -4,6 +4,8 @@ import {
   Search,
   FolderOpen,
   FileBarChart,
+  ShieldCheck,
+  Bell,
   Shield,
   ChevronRight,
   X,
@@ -14,6 +16,8 @@ const navItems = [
   { to: '/advertisements', icon: Search,           label: 'Scan Advertisements' },
   { to: '/investigations', icon: FolderOpen,        label: 'Investigations' },
   { to: '/reports',        icon: FileBarChart,      label: 'Reports' },
+  { to: '/evidence',       icon: ShieldCheck,       label: 'Evidence Vault' },
+  { to: '/alerts',         icon: Bell,              label: 'Alerts' },
 ];
 
 interface SidebarProps {

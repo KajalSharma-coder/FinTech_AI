@@ -1,4 +1,4 @@
-import { AlertTriangle, TrendingUp, FolderOpen, FileBarChart, ArrowRight, Clock, Search } from 'lucide-react';
+import { AlertTriangle, TrendingUp, FolderOpen, FileBarChart, ArrowRight, Clock, Search, Bell, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import AppShell from '../components/layout/AppShell';
 import ThreatTrendChart from '../components/charts/ThreatTrendChart';
@@ -36,6 +36,7 @@ export default function Dashboard() {
 
   const ads = state.advertisements;
   const investigations = state.investigations;
+  const alerts = state.alerts;
 
   const byRisk = RISK_ORDER.reduce((acc, l) => {
     acc[l] = ads.filter(a => a.riskLevel === l).length;
@@ -48,6 +49,11 @@ export default function Dashboard() {
     .slice(0, 7);
 
   const categoryData = reports[0].topCategories;
+  const activeAlerts = alerts.filter(alert => !['resolved', 'dismissed'].includes(alert.status));
+  const criticalHighAlerts = alerts.filter(alert => alert.severity === 'critical' || alert.severity === 'high');
+  const newAlerts = alerts.filter(alert => alert.status === 'new');
+  const resolvedAlerts = alerts.filter(alert => alert.status === 'resolved');
+  const recentAlerts = [...alerts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
 
   return (
     <AppShell
@@ -87,6 +93,13 @@ export default function Dashboard() {
           icon={FileBarChart}
           color="bg-blue-50 text-blue-600"
         />
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
+        <StatCard label="Active Alerts" value={activeAlerts.length} icon={Bell} color="bg-accent-light text-accent" delta="Needs analyst review" />
+        <StatCard label="Critical / High Alerts" value={criticalHighAlerts.length} icon={AlertTriangle} color="bg-critical-bg text-critical" />
+        <StatCard label="New Alerts" value={newAlerts.length} icon={Clock} color="bg-high-bg text-high" />
+        <StatCard label="Resolved Alerts" value={resolvedAlerts.length} icon={CheckCircle} color="bg-low-bg text-low" />
       </div>
 
       {/* Risk breakdown pills */}
@@ -205,6 +218,11 @@ export default function Dashboard() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="content-section mt-7">
+        <div className="flex items-center justify-between mb-4"><div className="flex items-center gap-2"><Bell className="w-4 h-4 text-accent" /><h2 className="section-title">Recent Alerts</h2></div><button type="button" onClick={() => navigate('/alerts')} className="btn-ghost text-xs">View all <ArrowRight className="w-3 h-3" /></button></div>
+        {recentAlerts.length === 0 ? <p className="text-sm text-muted">No alerts have been generated from the current data.</p> : <div className="space-y-2">{recentAlerts.map(alert => <button key={alert.id} type="button" onClick={() => navigate(`/alerts?id=${alert.id}`)} className="w-full text-left flex items-center justify-between gap-3 bg-surface-2 rounded-lg p-3 hover:bg-accent-light transition-colors"><div className="min-w-0"><p className="text-sm font-semibold text-navy truncate">{alert.title}</p><p className="text-xs text-muted truncate">{alert.summary}</p></div><div className="flex items-center gap-2 flex-shrink-0"><span className={`badge ${riskBadgeClass(alert.severity)}`}>{alert.severity}</span><span className="status-badge hidden sm:inline-flex">{alert.status}</span></div></button>)}</div>}
       </div>
     </AppShell>
   );

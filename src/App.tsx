@@ -5,6 +5,8 @@ import Dashboard from './pages/Dashboard';
 import AdvertisementAnalysis from './pages/AdvertisementAnalysis';
 import Investigations from './pages/Investigations';
 import Reports from './pages/Reports';
+import EvidenceVault from './pages/EvidenceVault';
+import Alerts from './pages/Alerts';
 
 export default function App() {
   return (
@@ -15,6 +17,8 @@ export default function App() {
           <Route path="/advertisements" element={<AdvertisementAnalysis />} />
           <Route path="/investigations" element={<Investigations />} />
           <Route path="/reports" element={<Reports />} />
+          <Route path="/evidence" element={<EvidenceVault />} />
+          <Route path="/alerts" element={<Alerts />} />
           {/* Catch-all */}
           <Route path="*" element={<Dashboard />} />
         </Routes>

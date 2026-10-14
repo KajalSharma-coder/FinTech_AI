@@ -21,6 +21,7 @@ const PLATFORM_SCORES: Record<Platform, number> = {
   Facebook: 9,
   'Twitter/X': 8,
   Reddit: 6,
+  Other: 5,
 };
 
 const FLAGGED_KEYWORDS = [
@@ -30,6 +31,9 @@ const FLAGGED_KEYWORDS = [
   'guaranteed', 'trusted seller', 'bulk discount', 'limited offer',
 ];
 
+/** Used only when scoreSellerActivity is called without an explicit date. */
+export const DEFAULT_RISK_EVALUATION_TIMESTAMP = '2026-10-14T00:00:00.000Z';
+
 export function scoreKeywords(content: string): number {
   const lower = content.toLowerCase();
   const hits = FLAGGED_KEYWORDS.filter(kw => lower.includes(kw));
@@ -37,9 +41,15 @@ export function scoreKeywords(content: string): number {
   return Math.min(20, hits.length * 4);
 }
 
-export function scoreSellerActivity(postCount: number, joinedDate: string): number {
+export function scoreSellerActivity(
+  postCount: number,
+  joinedDate: string,
+  evaluationTimestamp = DEFAULT_RISK_EVALUATION_TIMESTAMP,
+): number {
+  const evaluationTime = Date.parse(evaluationTimestamp);
+  const joinedTime = Date.parse(joinedDate);
   const daysSinceJoined = Math.max(1,
-    (Date.now() - new Date(joinedDate).getTime()) / (1000 * 60 * 60 * 24)
+    (evaluationTime - joinedTime) / (1000 * 60 * 60 * 24)
   );
   const postsPerDay = postCount / daysSinceJoined;
   // max 15 points
@@ -81,6 +91,8 @@ export function computeRisk(ad: Omit<Advertisement, 'riskScore' | 'riskLevel' | 
   const categoryScore = CATEGORY_SCORES[ad.category] ?? 10;
   const platformScore = PLATFORM_SCORES[ad.platform] ?? 5;
   const keywordScore = scoreKeywords(ad.content);
+  // Use the fixed evaluation timestamp so existing synthetic records retain a
+  // stable baseline and identical inputs always produce identical scores.
   const sellerScore = scoreSellerActivity(ad.seller.postCount, ad.seller.joinedDate);
   const priceScore = scorePrice(ad.priceOffered);
   const contactScore = scoreContactMethod(ad.seller.contactMethod);

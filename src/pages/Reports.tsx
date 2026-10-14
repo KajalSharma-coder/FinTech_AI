@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   FileBarChart, TrendingUp, AlertTriangle, CheckCircle, Download, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import AppShell from '../components/layout/AppShell';
 import CategoryPieChart from '../components/charts/CategoryPieChart';
 import { reports } from '../data/reports';
+import { useApp } from '../context/AppContext';
 import { formatDate, categoryLabel, riskHex } from '../lib/utils';
-import type { Report, RiskLevel } from '../types';
+import type { Report, RiskLevel, AdCategory, Platform } from '../types';
 
 const RISK_ORDER: RiskLevel[] = ['critical', 'high', 'medium', 'low'];
 
@@ -152,12 +153,49 @@ ${report.keyFindings.map((f, i) => `${i + 1}. ${f}`).join('\n')}
 }
 
 export default function Reports() {
-  const total = reports.reduce((a, r) => a + r.threatCount, 0);
-  const totalNew = reports.reduce((a, r) => a + r.newThreats, 0);
-  const totalResolved = reports.reduce((a, r) => a + r.resolvedThreats, 0);
+  const { state } = useApp();
+  const [generatedAt] = useState(() => new Date().toISOString());
+  const currentReport = useMemo<Report>(() => {
+    const categoryCounts = new Map<AdCategory, number>();
+    const platformCounts = new Map<Platform, number>();
+    const riskDistribution: Report['riskDistribution'] = { critical: 0, high: 0, medium: 0, low: 0 };
+    for (const ad of state.advertisements) {
+      categoryCounts.set(ad.category, (categoryCounts.get(ad.category) ?? 0) + 1);
+      platformCounts.set(ad.platform, (platformCounts.get(ad.platform) ?? 0) + 1);
+      riskDistribution[ad.riskLevel] += 1;
+    }
+    const topCategories = [...categoryCounts.entries()].sort((a, b) => b[1] - a[1]).map(([category, count]) => ({ category, count }));
+    const topPlatforms = [...platformCounts.entries()].sort((a, b) => b[1] - a[1]).map(([platform, count]) => ({ platform, count }));
+    const activeAlerts = state.alerts.filter(alert => !['resolved', 'dismissed'].includes(alert.status)).length;
+    return {
+      id: 'RPT-CURRENT',
+      title: 'Current Workspace Snapshot',
+      generatedAt,
+      period: { label: 'Current local workspace', start: '', end: '' },
+      summary: `${state.advertisements.length} advertisement records are currently available, with ${activeAlerts} active alert${activeAlerts === 1 ? '' : 's'} and ${state.evidence.length} evidence record${state.evidence.length === 1 ? '' : 's'}. Metrics include synthetic demonstration data and locally imported records only.`,
+      threatCount: state.advertisements.length,
+      newThreats: state.alerts.filter(alert => alert.status === 'new').length,
+      resolvedThreats: state.alerts.filter(alert => alert.status === 'resolved').length,
+      topCategories,
+      riskDistribution,
+      topPlatforms,
+      keyFindings: [
+        `${activeAlerts} active alert${activeAlerts === 1 ? '' : 's'} require${activeAlerts === 1 ? 's' : ''} review.`,
+        `${state.investigations.filter(investigation => investigation.status !== 'closed').length} investigation${state.investigations.filter(investigation => investigation.status !== 'closed').length === 1 ? '' : 's'} remain open or in progress.`,
+        `${state.evidence.length} evidence record${state.evidence.length === 1 ? '' : 's'} are retained in the local Evidence Vault.`,
+      ],
+    };
+  }, [state, generatedAt]);
+
+  const total = currentReport.threatCount;
+  const totalNew = currentReport.newThreats;
+  const totalResolved = currentReport.resolvedThreats;
 
   return (
-    <AppShell title="Reports" subtitle="Monthly threat intelligence summaries">
+    <AppShell title="Reports" subtitle="Current workspace analytics and synthetic demonstration history">
+      <div className="bg-accent-light border border-accent-mid rounded-lg px-4 py-3 mb-6 text-sm text-navy-3">
+        <span className="font-semibold text-navy">Demo data notice:</span> current metrics combine synthetic records and any records imported into this browser. This prototype does not provide live monitoring.
+      </div>
       {/* Summary stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         {[
@@ -179,6 +217,8 @@ export default function Reports() {
 
       {/* Reports list */}
       <div className="space-y-6">
+        <ReportCard report={currentReport} />
+        <p className="eyebrow text-muted">Historical synthetic demonstration reports</p>
         {reports.map(report => (
           <ReportCard key={report.id} report={report} />
         ))}

@@ -94,6 +94,7 @@ export function platformColor(platform: Platform): string {
     WhatsApp:       'bg-green-50 text-green-700 border-green-200',
     Reddit:         'bg-orange-50 text-orange-700 border-orange-200',
     Instagram:      'bg-pink-50 text-pink-700 border-pink-200',
+    Other:          'bg-surface-2 text-muted border-border',
   }[platform] ?? 'bg-surface-2 text-muted border-border';
 }
 
