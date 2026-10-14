@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "test": "node --experimental-strip-types --test tests/riskEngine.test.ts tests/ingestion.test.ts tests/indicatorExtraction.test.ts tests/relatedAds.test.ts tests/evidence.test.ts tests/alerts.test.ts tests/integration.test.ts",
+    "test": "node --experimental-strip-types --test tests/riskEngine.test.ts tests/ingestion.test.ts tests/indicatorExtraction.test.ts tests/relatedAds.test.ts tests/evidence.test.ts tests/alerts.test.ts tests/integration.test.ts tests/analysisSummary.test.ts",
     "test:risk": "node --experimental-strip-types --test tests/riskEngine.test.ts",
     "preview": "vite preview"
   },

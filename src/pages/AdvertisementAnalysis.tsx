@@ -2,13 +2,14 @@ import { useState, useMemo, type ReactNode } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Search, SlidersHorizontal, Download, X, ExternalLink,
-  ChevronUp, ChevronDown, FolderPlus, CheckCircle, XCircle, Clock, Upload,
+  ChevronUp, ChevronDown, FolderPlus, CheckCircle, XCircle, Clock, Upload, FileBarChart, ArrowRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { extractIndicators } from '../lib/indicatorExtraction';
 import { hashAdvertisementImage, type AdvertisementImageMetadata } from '../lib/imageHash';
 import { findRelatedAdvertisementsFor } from '../lib/relatedAds';
 import { createEvidenceRecord } from '../lib/evidence';
+import { summarizeAdvertisements } from '../lib/analysisSummary';
 import AppShell from '../components/layout/AppShell';
 import Modal from '../components/ui/Modal';
 import RiskMeter from '../components/ui/RiskMeter';
@@ -31,6 +32,58 @@ const CATEGORIES: AdCategory[] = [
 ];
 const PLATFORMS: Platform[] = ['Telegram', 'Facebook', 'Twitter/X', 'Dark Web Forum', 'WhatsApp', 'Reddit', 'Instagram', 'Other'];
 const STATUSES = ['flagged', 'under_review', 'confirmed_threat', 'dismissed'];
+
+function ScanLanding({ onUpload, onSample }: { onUpload: () => void; onSample: () => void }) {
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className="text-center mb-7">
+        <p className="eyebrow">Begin a scan</p>
+        <h2 className="display-heading mt-2 text-3xl sm:text-4xl">Analyze Suspicious Advertisements</h2>
+        <p className="section-subtitle max-w-2xl mx-auto mt-3 text-base">Upload a permitted CSV or JSON dataset and TRACE//FIN will identify risk signals, explain the score, and help you decide what to investigate next.</p>
+      </div>
+      <div className="content-section border-2 border-dashed border-accent/40 bg-surface text-center px-5 sm:px-10 py-9 shadow-card-md">
+        <div className="w-14 h-14 rounded-2xl bg-accent-light text-accent flex items-center justify-center mx-auto mb-4"><Upload className="w-7 h-7" /></div>
+        <h3 className="font-display text-xl font-semibold text-navy">Start with your advertisement data</h3>
+        <p className="text-sm text-muted mt-2 max-w-xl mx-auto">Choose a file containing public advertisement records you are authorized to use. Invalid rows are shown for review and duplicate records are not imported.</p>
+        <button type="button" onClick={onUpload} className="btn-primary mx-auto mt-6 min-h-12 px-6 text-sm"><Upload className="w-5 h-5" /> Choose CSV or JSON File</button>
+        <p className="text-xs text-muted mt-3">CSV with headers or JSON array · maximum 2 MB</p>
+        <div className="flex flex-wrap justify-center gap-3 mt-5 pt-5 border-t border-border">
+          <button type="button" onClick={onSample} className="btn-secondary"><FileBarChart className="w-4 h-4" /> Try Sample Dataset</button>
+          <span className="text-xs text-muted self-center">Synthetic demonstration data</span>
+        </div>
+      </div>
+      <div className="grid sm:grid-cols-3 gap-4 mt-7">
+        {[['1', 'Upload Data', 'Choose a CSV or JSON file.'], ['2', 'Analyze Risks', 'Review deterministic scores and explanations.'], ['3', 'View Report', 'Export results or continue to an investigation.']].map(([number, title, description]) => (
+          <div key={number} className="flex gap-3 items-start"><span className="w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center font-bold text-sm flex-shrink-0">{number}</span><div><p className="text-sm font-semibold text-navy">{title}</p><p className="text-xs text-muted mt-1 leading-relaxed">{description}</p></div></div>
+        ))}
+      </div>
+      <p className="text-xs text-muted text-center mt-7">Automated scores are screening indicators, not proof of criminal activity. You can inspect evidence, alerts, and investigations after analysis.</p>
+    </div>
+  );
+}
+
+function ResultsSummary({ ads, onExport, onReport, onOpenAd }: { ads: Advertisement[]; onExport: () => void; onReport: () => void; onOpenAd: (id: string) => void }) {
+  const summary = summarizeAdvertisements(ads);
+  const counts = summary.counts;
+  const flagged = summary.flaggedAdvertisements.slice(0, 8);
+  const highest = flagged[0];
+  return (
+    <section className="mb-7" aria-labelledby="analysis-results-heading">
+      <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
+        <div><p className="eyebrow">Analysis complete</p><h2 id="analysis-results-heading" className="display-heading mt-1">Your results at a glance</h2><p className="section-subtitle mt-1">{ads.length} advertisement{ads.length === 1 ? '' : 's'} in the current workspace, scored by the existing explainable risk engine.</p></div>
+        <div className="flex flex-wrap gap-2"><button type="button" onClick={onReport} className="btn-primary"><FileBarChart className="w-4 h-4" /> Generate Report</button><button type="button" onClick={onExport} className="btn-secondary"><Download className="w-4 h-4" /> Export Results CSV</button></div>
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        {RISK_LEVELS.map(level => <div key={level} className="metric-card"><p className={`text-2xl font-black capitalize ${level === 'critical' ? 'text-critical' : level === 'high' ? 'text-high' : level === 'medium' ? 'text-medium' : 'text-low'}`}>{counts[level]}</p><p className="stat-label mt-1">{level}-risk</p></div>)}
+      </div>
+      <div className="grid lg:grid-cols-2 gap-5">
+        <div className="content-section"><div className="flex items-center justify-between mb-4"><div><p className="section-title">Risk distribution</p><p className="section-subtitle mt-1">Actual results from this dataset</p></div><span className="text-xs font-semibold text-muted">{ads.length} total</span></div><div className="space-y-3">{RISK_LEVELS.map(level => { const percent = ads.length ? Math.round((counts[level] / ads.length) * 100) : 0; return <div key={level}><div className="flex justify-between text-xs mb-1"><span className="capitalize text-navy-3 font-medium">{level}</span><span className="text-muted">{counts[level]} · {percent}%</span></div><div className="h-2 bg-surface-3 rounded-full overflow-hidden"><div className={`h-full ${level === 'critical' ? 'bg-critical' : level === 'high' ? 'bg-high' : level === 'medium' ? 'bg-medium' : 'bg-low'}`} style={{ width: `${percent}%` }} /></div></div>; })}</div></div>
+        <div className="content-section bg-navy text-white"><p className="eyebrow text-accent-mid">What this means</p><p className="text-sm leading-relaxed text-white/80 mt-3">{flagged.length ? `${flagged.length} high or critical-risk advertisements need closer review${highest ? `, led by “${highest.title}” at ${highest.riskScore}/100` : ''}.` : 'No high or critical-risk advertisements were found in the current dataset.'} Scores combine the existing category, platform, keyword, seller, price, and contact signals.</p><p className="text-xs text-white/60 mt-4">These are automated screening indicators, not proof of criminal activity. Confirm findings through evidence and investigator review.</p></div>
+      </div>
+      <div className="content-section mt-5"><div className="flex items-center justify-between mb-3"><div><p className="section-title">Flagged advertisements</p><p className="section-subtitle mt-1">Start with the highest-risk records</p></div><button type="button" onClick={() => document.getElementById('advanced-analysis')?.scrollIntoView({ behavior: 'smooth' })} className="btn-ghost text-xs">Open advanced analysis <ArrowRight className="w-3 h-3" /></button></div>{flagged.length === 0 ? <p className="text-sm text-muted">There are no high or critical-risk advertisements to display.</p> : <div className="overflow-x-auto"><table className="w-full"><thead><tr className="border-b border-border"><th className="th pl-0">Advertisement</th><th className="th">Risk</th><th className="th">Score</th><th className="th pr-0">Action</th></tr></thead><tbody>{flagged.map(ad => <tr key={ad.id} className="border-b border-border last:border-0"><td className="td pl-0"><p className="font-semibold text-navy text-sm truncate max-w-xs">{ad.title}</p><p className="text-[11px] text-muted">{ad.id} · {ad.platform}</p></td><td className="td"><span className={`badge ${riskBadgeClass(ad.riskLevel)}`}>{ad.riskLevel}</span></td><td className="td font-semibold text-navy">{ad.riskScore}/100</td><td className="td pr-0"><button type="button" onClick={() => onOpenAd(ad.id)} className="btn-ghost text-xs text-accent px-0">View Details <ArrowRight className="w-3 h-3" /></button></td></tr>)}</tbody></table></div>}</div>
+    </section>
+  );
+}
 
 // Sort icon as a plain function (not a hook) to avoid rules-of-hooks violation
 function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; sortDir: SortDir }) {
@@ -93,6 +146,8 @@ export default function AdvertisementAnalysis() {
   const [evidenceModal, setEvidenceModal] = useState(false);
   const [evidenceInvestigationId, setEvidenceInvestigationId] = useState('');
   const [evidenceNotes, setEvidenceNotes] = useState('');
+  const [scanStarted, setScanStarted] = useState(Boolean(searchParams.get('id') || searchParams.get('search') || searchParams.get('risk')));
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const ads = state.advertisements;
   const investigations = state.investigations;
@@ -219,8 +274,8 @@ export default function AdvertisementAnalysis() {
     setEvidenceNotes('');
   }
 
-  function handleExportCSV() {
-    const rows = filtered.map(ad => ({
+  function handleExportCSV(records = filtered) {
+    const rows = records.map(ad => ({
       ID: ad.id,
       Title: ad.title,
       Platform: ad.platform,
@@ -238,10 +293,27 @@ export default function AdvertisementAnalysis() {
     toast.success(`Exported ${rows.length} records`);
   }
 
+  function handleOpenAd(id: string) {
+    setScanStarted(true);
+    setSelectedId(id);
+    setSearchParams({ id });
+  }
+
   const hasFilters = search || filterRisk || filterCat || filterPlatform || filterStatus;
 
   return (
     <AppShell title="Advertisement Analysis" subtitle={`${filtered.length} of ${ads.length} advertisements under review`}>
+      {!scanStarted ? (
+        <ScanLanding onUpload={() => setIngestionOpen(true)} onSample={() => { setScanStarted(true); toast.success('Synthetic sample dataset loaded.'); }} />
+      ) : (
+        <>
+          <ResultsSummary ads={ads} onExport={() => handleExportCSV(ads)} onReport={() => navigate('/reports')} onOpenAd={handleOpenAd} />
+          <details id="advanced-analysis" open={advancedOpen} onToggle={event => setAdvancedOpen(event.currentTarget.open)} className="mb-5">
+            <summary className="list-none cursor-pointer content-section flex items-center justify-between gap-3 hover:border-accent transition-colors">
+              <span><span className="section-title">Advanced Analysis</span><span className="section-subtitle block mt-1">Search, filter, sort, inspect indicators, manage evidence, and link investigations.</span></span>
+              <span className="btn-secondary text-xs">{advancedOpen ? 'Collapse' : 'Open'}</span>
+            </summary>
+            <div className="pt-5">
       {/* Toolbar */}
       <div className="analysis-toolbar">
         <div className="mb-4">
@@ -274,7 +346,7 @@ export default function AdvertisementAnalysis() {
           <SlidersHorizontal className="w-4 h-4" /> Filters
           {hasFilters && <span className="w-1.5 h-1.5 bg-accent rounded-full" />}
         </button>
-        <button type="button" onClick={handleExportCSV} className="btn-secondary">
+        <button type="button" onClick={() => handleExportCSV()} className="btn-secondary">
           <Download className="w-4 h-4" /> Export CSV
         </button>
         <button type="button" onClick={() => setIngestionOpen(true)} className="btn-primary">
@@ -614,6 +686,11 @@ export default function AdvertisementAnalysis() {
         )}
       </div>
 
+            </div>
+          </details>
+        </>
+      )}
+
       {/* Add to Investigation modal */}
       <Modal
         open={addToInvModal}
@@ -687,7 +764,7 @@ export default function AdvertisementAnalysis() {
           </div>
         </div>
       </Modal>
-      <AdvertisementIngestion open={ingestionOpen} onClose={() => setIngestionOpen(false)} />
+      <AdvertisementIngestion open={ingestionOpen} onClose={() => setIngestionOpen(false)} onImported={() => setScanStarted(true)} />
     </AppShell>
   );
 }

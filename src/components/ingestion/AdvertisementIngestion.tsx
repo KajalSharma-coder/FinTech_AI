@@ -12,6 +12,7 @@ import type { CollectionMethod, Platform } from '../../types';
 interface AdvertisementIngestionProps {
   open: boolean;
   onClose: () => void;
+  onImported?: (count: number) => void;
 }
 
 const PLATFORMS: Platform[] = ['Instagram', 'Facebook', 'Telegram', 'Other'];
@@ -27,7 +28,7 @@ function resetManual() {
   };
 }
 
-export default function AdvertisementIngestion({ open, onClose }: AdvertisementIngestionProps) {
+export default function AdvertisementIngestion({ open, onClose, onImported }: AdvertisementIngestionProps) {
   const { state, addImportedAdvertisements } = useApp();
   const [mode, setMode] = useState<'file' | 'manual'>('file');
   const [preview, setPreview] = useState<ImportValidationResult | null>(null);
@@ -77,6 +78,7 @@ export default function AdvertisementIngestion({ open, onClose }: AdvertisementI
       return;
     }
     addImportedAdvertisements(preview.validRecords);
+    onImported?.(preview.validRecords.length);
     if (preview.invalidCount || preview.duplicateCount) {
       toast.success(`Imported ${preview.validRecords.length} records; ${preview.invalidCount + preview.duplicateCount} skipped.`);
     } else {
@@ -177,8 +179,8 @@ export default function AdvertisementIngestion({ open, onClose }: AdvertisementI
               ))}
             </div>
             <div className="flex justify-end gap-3">
-              <button type="button" className="btn-secondary" onClick={clearPreview}>Clear preview</button>
-              <button type="button" className="btn-primary" onClick={handleImport}><Upload className="w-4 h-4" /> Import {preview.validRecords.length} valid</button>
+              <button type="button" className="btn-secondary" onClick={close}>Cancel</button>
+              <button type="button" className="btn-primary" onClick={handleImport}><Upload className="w-4 h-4" /> Analyze {preview.validRecords.length} valid</button>
             </div>
           </div>
         )}
