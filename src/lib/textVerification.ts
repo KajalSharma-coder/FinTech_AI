@@ -19,12 +19,13 @@ export function assessOcrQuality(text: string, confidence?: number): OCRQuality 
   return confidence !== undefined && confidence < 60 ? 'low_confidence' : 'good';
 }
 
-function sourceForMatch(value: string, original: string, wasEdited: boolean): TextVerificationFinding['source'] {
+function sourceForMatch(value: string, original: string, wasEdited: boolean, inputSource: 'ocr' | 'manual'): TextVerificationFinding['source'] {
+  if (inputSource === 'manual') return 'manual_entry';
   if (original.toLocaleLowerCase().includes(value.toLocaleLowerCase())) return 'ocr_extracted';
   return wasEdited ? 'user_corrected' : 'automated_detected';
 }
 
-export function verifyAdvertisementText(input: { ocrText: string; reviewedText: string; confidence?: number }): TextVerificationResult {
+export function verifyAdvertisementText(input: { ocrText: string; reviewedText: string; confidence?: number; source?: 'ocr' | 'manual' }): TextVerificationResult {
   const ocrText = normalizeOcrText(input.ocrText);
   const reviewedText = normalizeOcrText(input.reviewedText);
   const edit = getTextEditSummary(ocrText, reviewedText);
@@ -40,7 +41,7 @@ export function verifyAdvertisementText(input: { ocrText: string; reviewedText: 
       kind: ['phone_number', 'url', 'domain', 'payment_identifier'].includes(indicator.type) ? 'format' : 'suspicious_content',
       matchedValue: indicator.maskedDisplayValue,
       reason: indicator.explanation,
-      source: sourceForMatch(indicator.matchedValue, ocrText, edit.wasEdited),
+      source: sourceForMatch(indicator.matchedValue, ocrText, edit.wasEdited, input.source ?? 'ocr'),
       indicatorId: indicator.id,
     });
   });

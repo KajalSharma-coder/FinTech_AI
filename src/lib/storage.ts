@@ -248,7 +248,7 @@ export function isValidEvidenceRecord(value: unknown): value is EvidenceRecord {
       const item = finding as Record<string, unknown>;
       return typeof item.id === 'string' && (item.kind === 'format' || item.kind === 'suspicious_content')
         && typeof item.matchedValue === 'string' && typeof item.reason === 'string'
-        && (item.source === 'ocr_extracted' || item.source === 'user_corrected' || item.source === 'automated_detected')
+        && (item.source === 'ocr_extracted' || item.source === 'user_corrected' || item.source === 'manual_entry' || item.source === 'automated_detected')
         && (item.indicatorId === undefined || typeof item.indicatorId === 'string');
     })));
 }

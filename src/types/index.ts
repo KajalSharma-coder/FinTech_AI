@@ -44,7 +44,7 @@ export type IndicatorType =
 export type IndicatorSource = 'title' | 'content' | 'source_url' | 'seller_profile' | 'image_text';
 
 export type FindingAssessment = 'automated' | 'investigator_confirmed';
-export type TextVerificationSource = 'ocr_extracted' | 'user_corrected' | 'automated_detected';
+export type TextVerificationSource = 'ocr_extracted' | 'user_corrected' | 'manual_entry' | 'automated_detected';
 export type OCRQuality = 'good' | 'low_confidence' | 'unreadable';
 
 export interface TextVerificationFinding {
