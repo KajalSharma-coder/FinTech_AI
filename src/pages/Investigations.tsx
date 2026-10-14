@@ -26,7 +26,7 @@ function InvestigationCard({
 }) {
   return (
     <article
-      className="card-hover group"
+      className="investigation-card cursor-pointer group"
       onClick={() => onOpen(inv.id)}
     >
       {/* Header */}
@@ -36,7 +36,7 @@ function InvestigationCard({
             <span className={`status-badge ${statusBadgeClass(inv.status)}`}>{statusLabel(inv.status)}</span>
             <span className={`badge ${riskBadgeClass(inv.priority)} text-[10px]`}>{inv.priority}</span>
           </div>
-          <h3 className="text-sm font-bold text-navy leading-snug">{truncate(inv.title, 70)}</h3>
+          <h3 className="font-display text-lg font-semibold text-navy leading-snug">{truncate(inv.title, 70)}</h3>
         </div>
         <button
           type="button"
@@ -50,8 +50,8 @@ function InvestigationCard({
 
       {/* Meta */}
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted mb-3">
-        <span>{inv.id}</span>
-        <span>Analyst: {inv.analyst}</span>
+        <span className="font-mono text-[11px]">{inv.id}</span>
+        <span>{inv.analyst}</span>
         <span>Updated {formatDate(inv.updatedAt)}</span>
         <span>{inv.linkedAdIds.length} linked ad{inv.linkedAdIds.length !== 1 ? 's' : ''}</span>
       </div>

@@ -15,7 +15,7 @@ function StatCard({
   color: string; delta?: string;
 }) {
   return (
-    <div className="card flex items-start gap-4">
+    <div className="metric-card flex items-start gap-4">
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
         <Icon className="w-5 h-5" />
       </div>
@@ -51,8 +51,8 @@ export default function Dashboard() {
 
   return (
     <AppShell
-      title="Dashboard"
-      subtitle="Highlights suspicious financial account advertisements"
+      title="Financial Threat Intelligence"
+      subtitle="A focused view of suspicious financial account activity"
       actions={
         <button type="button" onClick={() => navigate('/advertisements')} className="btn-primary text-xs whitespace-nowrap">
           <Search className="w-3.5 h-3.5" /> Analyze Advertisement
@@ -90,13 +90,16 @@ export default function Dashboard() {
       </div>
 
       {/* Risk breakdown pills */}
-      <div className="card mb-7">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="section-title">Threat Risk Distribution</h2>
+      <div className="risk-overview mb-7">
+        <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+          <div>
+            <p className="eyebrow text-accent-mid">Signal overview</p>
+            <h2 className="font-display text-xl sm:text-2xl font-semibold mt-1">Threat risk distribution</h2>
+          </div>
           <button
             type="button"
             onClick={() => navigate('/advertisements')}
-            className="btn-ghost text-xs"
+            className="btn-ghost text-xs text-white/70 hover:text-white hover:bg-white/10"
           >
             View all <ArrowRight className="w-3 h-3" />
           </button>
@@ -107,20 +110,20 @@ export default function Dashboard() {
               key={level}
               type="button"
               onClick={() => navigate(`/advertisements?risk=${level}`)}
-              className={`rounded-xl p-4 text-center border transition-all hover:shadow-card-md ${
-                level === 'critical' ? 'bg-critical-bg border-critical-border' :
-                level === 'high'     ? 'bg-high-bg border-high-border' :
-                level === 'medium'   ? 'bg-medium-bg border-medium-border' :
-                                       'bg-low-bg border-low-border'
+                className={`risk-cell ${
+                level === 'critical' ? 'border-l-2 border-l-critical' :
+                level === 'high'     ? 'border-l-2 border-l-high' :
+                level === 'medium'   ? 'border-l-2 border-l-medium' :
+                                       'border-l-2 border-l-low'
               }`}
             >
-              <p className={`text-2xl font-black ${
+              <p className={`font-display text-3xl font-semibold ${
                 level === 'critical' ? 'text-critical' :
                 level === 'high'     ? 'text-high' :
                 level === 'medium'   ? 'text-medium' :
                                        'text-low'
               }`}>{byRisk[level]}</p>
-              <p className="text-xs font-semibold text-muted capitalize mt-0.5">{level}</p>
+              <p className="text-xs font-medium text-white/65 capitalize mt-1">{level} alerts</p>
             </button>
           ))}
         </div>
@@ -128,14 +131,14 @@ export default function Dashboard() {
 
       {/* Charts row */}
       <div className="grid lg:grid-cols-3 gap-6 mb-7">
-        <div className="lg:col-span-2 card">
+        <div className="lg:col-span-2 content-section">
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp className="w-4 h-4 text-accent" />
             <h2 className="section-title">Detection Trend (Last 14 Days)</h2>
           </div>
           <ThreatTrendChart data={dailyThreats} />
         </div>
-        <div className="card">
+        <div className="content-section">
           <h2 className="section-title mb-1">Ad Categories</h2>
           <p className="section-subtitle mb-3">By threat type</p>
           <CategoryPieChart data={categoryData} />
@@ -143,7 +146,7 @@ export default function Dashboard() {
       </div>
 
       {/* Recent alerts */}
-      <div className="card">
+      <div className="content-section">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-muted" />

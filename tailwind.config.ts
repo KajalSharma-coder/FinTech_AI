@@ -6,7 +6,7 @@ const config: Config = {
     extend: {
       colors: {
         // Light theme base
-        bg: '#f8fafc',
+        bg: '#f7f8f5',
         surface: '#ffffff',
         'surface-2': '#f1f5f9',
         'surface-3': '#e2e8f0',
@@ -45,6 +45,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Space Grotesk', 'Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
       boxShadow: {

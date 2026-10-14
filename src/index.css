@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -24,14 +24,14 @@
 @layer components {
   /* ─── Cards ─── */
   .card {
-    @apply bg-surface border border-border rounded-xl p-6 shadow-card;
+    @apply bg-surface rounded-2xl p-6 shadow-card;
   }
   .card-sm {
-    @apply bg-surface border border-border rounded-xl p-4 shadow-card;
+    @apply bg-surface rounded-xl p-4 shadow-card;
   }
   .card-hover {
-    @apply bg-surface border border-border rounded-xl p-6 shadow-card
-           hover:shadow-card-md hover:border-border-2 transition-all duration-200;
+    @apply bg-surface rounded-2xl p-6 shadow-card
+           hover:shadow-card-md transition-all duration-200;
   }
 
   /* ─── Buttons ─── */
@@ -132,6 +132,39 @@
   }
   .section-subtitle {
     @apply text-sm text-muted;
+  }
+  .display-heading {
+    @apply font-display text-2xl sm:text-3xl font-semibold tracking-tight text-navy;
+  }
+  .eyebrow {
+    @apply text-[11px] font-bold uppercase tracking-[0.16em] text-accent;
+  }
+  .metric-card {
+    @apply bg-surface rounded-2xl px-5 py-4 shadow-card min-w-0;
+  }
+  .metric-card .stat-number {
+    @apply font-display text-3xl;
+  }
+  .risk-overview {
+    @apply bg-navy rounded-2xl p-6 sm:p-7 text-white shadow-card-md;
+  }
+  .risk-cell {
+    @apply bg-white/10 border border-white/10 rounded-xl p-4 text-left transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60;
+  }
+  .content-section {
+    @apply bg-surface rounded-2xl p-5 sm:p-6 shadow-card;
+  }
+  .analysis-toolbar {
+    @apply bg-surface rounded-2xl p-4 sm:p-5 shadow-card mb-5;
+  }
+  .detail-panel {
+    @apply bg-surface rounded-2xl p-6 shadow-card-md;
+  }
+  .investigation-card {
+    @apply bg-surface rounded-2xl p-5 shadow-card hover:shadow-card-md transition-shadow;
+  }
+  .report-card {
+    @apply bg-surface rounded-2xl p-6 sm:p-8 shadow-card;
   }
   .divider {
     @apply border-t border-border;

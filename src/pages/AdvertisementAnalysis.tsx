@@ -162,9 +162,15 @@ export default function AdvertisementAnalysis() {
   const hasFilters = search || filterRisk || filterCat || filterPlatform || filterStatus;
 
   return (
-    <AppShell title="Scan Advertisements" subtitle={`${filtered.length} of ${ads.length} advertisements`}>
+    <AppShell title="Advertisement Analysis" subtitle={`${filtered.length} of ${ads.length} advertisements under review`}>
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
+      <div className="analysis-toolbar">
+        <div className="mb-4">
+          <p className="eyebrow">Investigation workspace</p>
+          <h2 className="display-heading mt-1">Scan the signal</h2>
+          <p className="section-subtitle mt-1">Search suspicious listings, inspect the evidence, and record the next action.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
         <div className="flex-1 min-w-48 min-h-11 flex items-center gap-2 bg-surface border border-border rounded-lg px-3 py-2 shadow-card focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20 transition-all">
           <Search className="w-4 h-4 text-muted flex-shrink-0" />
           <input
@@ -192,6 +198,7 @@ export default function AdvertisementAnalysis() {
         <button type="button" onClick={handleExportCSV} className="btn-secondary">
           <Download className="w-4 h-4" /> Export CSV
         </button>
+        </div>
       </div>
 
       {/* Filter bar */}
@@ -237,7 +244,7 @@ export default function AdvertisementAnalysis() {
 
       <div className="flex gap-5">
         {/* Table */}
-        <div className={`card flex-1 overflow-hidden ${selected ? 'hidden lg:block' : ''}`}>
+        <div className={`content-section flex-1 overflow-hidden ${selected ? 'hidden lg:block' : ''}`}>
           <div className="overflow-x-auto -mx-4 sm:-mx-6">
             <table className="w-full">
               <thead>
@@ -309,7 +316,7 @@ export default function AdvertisementAnalysis() {
         {/* Detail Panel — FIX: overflow-y-auto so long content scrolls within the panel */}
         {selected && (
           <div className="w-full lg:w-[380px] flex-shrink-0 animate-slide-in-right">
-            <div className="card overflow-y-auto max-h-[calc(100vh-9rem)] sticky top-6 shadow-card-md">
+            <div className="detail-panel overflow-y-auto max-h-[calc(100vh-9rem)] sticky top-6">
               {/* Header */}
               <div className="flex items-start justify-between gap-2 mb-4">
                 <div className="flex-1 min-w-0">

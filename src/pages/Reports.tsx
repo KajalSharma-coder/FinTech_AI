@@ -78,7 +78,7 @@ ${report.keyFindings.map((f, i) => `${i + 1}. ${f}`).join('\n')}
   }
 
   return (
-    <div className="card">
+    <article className="report-card">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex-1 min-w-0">
@@ -87,7 +87,7 @@ ${report.keyFindings.map((f, i) => `${i + 1}. ${f}`).join('\n')}
               <FileBarChart className="w-4 h-4 text-accent" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-navy leading-tight">{report.title}</h2>
+              <h2 className="font-display text-lg font-semibold text-navy leading-tight">{report.title}</h2>
               <p className="text-xs text-muted">{report.period.label} · Generated {formatDate(report.generatedAt)}</p>
             </div>
           </div>
@@ -114,7 +114,7 @@ ${report.keyFindings.map((f, i) => `${i + 1}. ${f}`).join('\n')}
       </div>
 
       {/* Summary */}
-      <p className="text-xs text-navy-3 leading-relaxed mb-4">{report.summary}</p>
+      <p className="text-sm text-navy-3 leading-relaxed mb-6 max-w-3xl">{report.summary}</p>
 
       {/* Charts row */}
       <div className="grid md:grid-cols-2 gap-4 mb-4">
@@ -147,7 +147,7 @@ ${report.keyFindings.map((f, i) => `${i + 1}. ${f}`).join('\n')}
           ))}
         </div>
       )}
-    </div>
+    </article>
   );
 }
 
@@ -165,7 +165,7 @@ export default function Reports() {
           { label: 'New Threats Tracked', value: totalNew, icon: TrendingUp, color: 'bg-high-bg text-high' },
           { label: 'Threats Resolved', value: totalResolved, icon: CheckCircle, color: 'bg-low-bg text-low' },
         ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="card flex items-center gap-3">
+          <div key={label} className="metric-card flex items-center gap-3">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
               <Icon className="w-4 h-4" />
             </div>
@@ -178,7 +178,7 @@ export default function Reports() {
       </div>
 
       {/* Reports list */}
-      <div className="space-y-5">
+      <div className="space-y-6">
         {reports.map(report => (
           <ReportCard key={report.id} report={report} />
         ))}
