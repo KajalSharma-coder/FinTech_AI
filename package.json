@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "test": "node --experimental-strip-types --test tests/riskEngine.test.ts tests/ingestion.test.ts tests/indicatorExtraction.test.ts tests/relatedAds.test.ts tests/evidence.test.ts tests/alerts.test.ts tests/integration.test.ts tests/analysisSummary.test.ts",
+    "test": "node --experimental-strip-types --test tests/riskEngine.test.ts tests/ingestion.test.ts tests/indicatorExtraction.test.ts tests/relatedAds.test.ts tests/evidence.test.ts tests/alerts.test.ts tests/integration.test.ts tests/analysisSummary.test.ts tests/textVerification.test.ts tests/ocr.test.ts",
     "test:risk": "node --experimental-strip-types --test tests/riskEngine.test.ts",
     "preview": "vite preview"
   },
@@ -17,7 +17,8 @@
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.4",
     "recharts": "^3.10.1",
-    "sonner": "^2.0.8"
+    "sonner": "^2.0.8",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",

@@ -1,7 +1,15 @@
-import type { Advertisement, EvidenceRecord, ExtractedIndicator } from '../types';
+import type { Advertisement, EvidenceRecord, ExtractedIndicator, TextVerificationFinding } from '../types';
 import type { AdvertisementImageMetadata } from './imageHash';
 
 const EVIDENCE_TIMESTAMP = '2026-10-14T00:00:00.000Z';
+
+export interface EvidenceOcrDetails {
+  ocrText: string;
+  reviewedText: string;
+  confidence: number;
+  extractedAt: string;
+  verificationFindings: TextVerificationFinding[];
+}
 
 function createEvidenceId(advertisementId: string): string {
   const random = globalThis.crypto?.randomUUID?.();
@@ -15,6 +23,7 @@ export function createEvidenceRecord(
   image?: AdvertisementImageMetadata,
   investigatorNotes = '',
   createdAt = new Date().toISOString(),
+  ocr?: EvidenceOcrDetails,
 ): EvidenceRecord {
   const provenance = advertisement.provenance;
   const timestamp = createdAt || EVIDENCE_TIMESTAMP;
@@ -33,6 +42,7 @@ export function createEvidenceRecord(
     createdAt: timestamp,
     history: [{ action: 'created', timestamp, actor: 'A. Reyes', note: 'Evidence record created from advertisement analysis.' }],
     ...(image ? { fileHash: image.sha256, fileName: image.fileName, fileMimeType: image.mimeType, fileSize: image.size } : {}),
+    ...(ocr ? { ocrText: ocr.ocrText, reviewedText: ocr.reviewedText, ocrConfidence: ocr.confidence, ocrExtractedAt: ocr.extractedAt, verificationFindings: ocr.verificationFindings } : {}),
   };
 }
 

@@ -6,7 +6,13 @@ export interface AdvertisementImageMetadata {
   mimeType: string;
   size: number;
   sha256: string;
-  ocrAvailable: false;
+  ocrAvailable: boolean;
+}
+
+export function validateAdvertisementImage(file: File): void {
+  if (!SUPPORTED_IMAGE_TYPES.has(file.type)) throw new Error('Choose a PNG, JPEG, or WebP image.');
+  if (file.size === 0) throw new Error('The selected image is empty.');
+  if (file.size > MAX_AD_IMAGE_BYTES) throw new Error('Images must be 5 MB or smaller.');
 }
 
 function bytesToHex(bytes: ArrayBuffer): string {
@@ -14,9 +20,7 @@ function bytesToHex(bytes: ArrayBuffer): string {
 }
 
 export async function hashAdvertisementImage(file: File): Promise<AdvertisementImageMetadata> {
-  if (!SUPPORTED_IMAGE_TYPES.has(file.type)) throw new Error('Choose a PNG, JPEG, or WebP image.');
-  if (file.size === 0) throw new Error('The selected image is empty.');
-  if (file.size > MAX_AD_IMAGE_BYTES) throw new Error('Images must be 5 MB or smaller.');
+  validateAdvertisementImage(file);
   if (!globalThis.crypto?.subtle) throw new Error('Browser SHA-256 support is unavailable.');
 
   const digest = await globalThis.crypto.subtle.digest('SHA-256', await file.arrayBuffer());

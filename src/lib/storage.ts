@@ -238,7 +238,19 @@ export function isValidEvidenceRecord(value: unknown): value is EvidenceRecord {
     && (record.fileHash === undefined || typeof record.fileHash === 'string')
     && (record.fileName === undefined || typeof record.fileName === 'string')
     && (record.fileMimeType === undefined || typeof record.fileMimeType === 'string')
-    && (record.fileSize === undefined || (typeof record.fileSize === 'number' && record.fileSize >= 0));
+    && (record.fileSize === undefined || (typeof record.fileSize === 'number' && record.fileSize >= 0))
+    && (record.ocrText === undefined || typeof record.ocrText === 'string')
+    && (record.reviewedText === undefined || typeof record.reviewedText === 'string')
+    && (record.ocrConfidence === undefined || (typeof record.ocrConfidence === 'number' && record.ocrConfidence >= 0 && record.ocrConfidence <= 100))
+    && (record.ocrExtractedAt === undefined || typeof record.ocrExtractedAt === 'string')
+    && (record.verificationFindings === undefined || (Array.isArray(record.verificationFindings) && record.verificationFindings.every(finding => {
+      if (typeof finding !== 'object' || finding === null) return false;
+      const item = finding as Record<string, unknown>;
+      return typeof item.id === 'string' && (item.kind === 'format' || item.kind === 'suspicious_content')
+        && typeof item.matchedValue === 'string' && typeof item.reason === 'string'
+        && (item.source === 'ocr_extracted' || item.source === 'user_corrected' || item.source === 'automated_detected')
+        && (item.indicatorId === undefined || typeof item.indicatorId === 'string');
+    })));
 }
 
 export function parseEvidenceStorage(raw: string | null): EvidenceStorageResult {

@@ -44,6 +44,28 @@ export type IndicatorType =
 export type IndicatorSource = 'title' | 'content' | 'source_url' | 'seller_profile' | 'image_text';
 
 export type FindingAssessment = 'automated' | 'investigator_confirmed';
+export type TextVerificationSource = 'ocr_extracted' | 'user_corrected' | 'automated_detected';
+export type OCRQuality = 'good' | 'low_confidence' | 'unreadable';
+
+export interface TextVerificationFinding {
+  id: string;
+  kind: 'format' | 'suspicious_content';
+  matchedValue: string;
+  reason: string;
+  source: TextVerificationSource;
+  indicatorId?: string;
+}
+
+export interface TextVerificationResult {
+  ocrText: string;
+  reviewedText: string;
+  wasEdited: boolean;
+  changedCharacterCount: number;
+  confidence?: number;
+  quality: OCRQuality;
+  findings: TextVerificationFinding[];
+  externalVerificationAvailable: false;
+}
 
 // ─── Core Entities ───────────────────────────────────────────────────────────
 
@@ -150,6 +172,11 @@ export interface EvidenceRecord {
   fileName?: string;
   fileMimeType?: string;
   fileSize?: number;
+  ocrText?: string;
+  reviewedText?: string;
+  ocrConfidence?: number;
+  ocrExtractedAt?: string;
+  verificationFindings?: TextVerificationFinding[];
 }
 
 export type RelatedMatchReasonType = 'text_similarity' | 'shared_url' | 'shared_domain' | 'matching_phone' | 'matching_payment_identifier' | 'matching_image_hash';

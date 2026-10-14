@@ -2,7 +2,7 @@ import { useState, useMemo, type ReactNode } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Search, SlidersHorizontal, Download, X, ExternalLink,
-  ChevronUp, ChevronDown, FolderPlus, CheckCircle, XCircle, Clock, Upload, FileBarChart, ArrowRight,
+  ChevronUp, ChevronDown, FolderPlus, CheckCircle, XCircle, Clock, Upload, FileBarChart, ArrowRight, ScanText,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { extractIndicators } from '../lib/indicatorExtraction';
@@ -15,6 +15,7 @@ import Modal from '../components/ui/Modal';
 import RiskMeter from '../components/ui/RiskMeter';
 import RiskBreakdown from '../components/ui/RiskBreakdown';
 import AdvertisementIngestion from '../components/ingestion/AdvertisementIngestion';
+import OcrAdvertisementScanner from '../components/ocr/OcrAdvertisementScanner';
 import { useApp } from '../context/AppContext';
 import {
   riskBadgeClass, categoryLabel, statusLabel, statusBadgeClass,
@@ -33,7 +34,7 @@ const CATEGORIES: AdCategory[] = [
 const PLATFORMS: Platform[] = ['Telegram', 'Facebook', 'Twitter/X', 'Dark Web Forum', 'WhatsApp', 'Reddit', 'Instagram', 'Other'];
 const STATUSES = ['flagged', 'under_review', 'confirmed_threat', 'dismissed'];
 
-function ScanLanding({ onUpload, onSample }: { onUpload: () => void; onSample: () => void }) {
+function ScanLanding({ onUpload, onOcr, onSample }: { onUpload: () => void; onOcr: () => void; onSample: () => void }) {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="text-center mb-7">
@@ -49,6 +50,7 @@ function ScanLanding({ onUpload, onSample }: { onUpload: () => void; onSample: (
         <p className="text-xs text-muted mt-3">CSV with headers or JSON array · maximum 2 MB</p>
         <div className="flex flex-wrap justify-center gap-3 mt-5 pt-5 border-t border-border">
           <button type="button" onClick={onSample} className="btn-secondary"><FileBarChart className="w-4 h-4" /> Try Sample Dataset</button>
+          <button type="button" onClick={onOcr} className="btn-secondary"><ScanText className="w-4 h-4" /> Analyze an Image with OCR</button>
           <span className="text-xs text-muted self-center">Synthetic demonstration data</span>
         </div>
       </div>
@@ -141,6 +143,7 @@ export default function AdvertisementAnalysis() {
   const [selectedId, setSelectedId] = useState<string | null>(searchParams.get('id'));
   const [addToInvModal, setAddToInvModal] = useState(false);
   const [ingestionOpen, setIngestionOpen] = useState(false);
+  const [ocrOpen, setOcrOpen] = useState(false);
   const [imageMetadata, setImageMetadata] = useState<{ advertisementId: string; metadata: AdvertisementImageMetadata } | null>(null);
   const [relatedToLinkId, setRelatedToLinkId] = useState<string | null>(null);
   const [evidenceModal, setEvidenceModal] = useState(false);
@@ -192,7 +195,7 @@ export default function AdvertisementAnalysis() {
     try {
       const metadata = await hashAdvertisementImage(file);
       setImageMetadata(selected ? { advertisementId: selected.id, metadata } : null);
-      toast.success('Image metadata captured. OCR is not available in this prototype.');
+    toast.success('Image metadata captured. Use the upload-first OCR workflow to extract text.');
     } catch (error) {
       setImageMetadata(null);
       toast.error(error instanceof Error ? error.message : 'Unable to process image.');
@@ -304,7 +307,7 @@ export default function AdvertisementAnalysis() {
   return (
     <AppShell title="Advertisement Analysis" subtitle={`${filtered.length} of ${ads.length} advertisements under review`}>
       {!scanStarted ? (
-        <ScanLanding onUpload={() => setIngestionOpen(true)} onSample={() => { setScanStarted(true); toast.success('Synthetic sample dataset loaded.'); }} />
+        <ScanLanding onUpload={() => setIngestionOpen(true)} onOcr={() => setOcrOpen(true)} onSample={() => { setScanStarted(true); toast.success('Synthetic sample dataset loaded.'); }} />
       ) : (
         <>
           <ResultsSummary ads={ads} onExport={() => handleExportCSV(ads)} onReport={() => navigate('/reports')} onOpenAd={handleOpenAd} />
@@ -594,7 +597,7 @@ export default function AdvertisementAnalysis() {
                   <Upload className="w-3 h-3" /> Add PNG, JPEG, or WebP image
                   <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={event => void handleImageSelection(event.target.files?.[0])} />
                 </label>
-                <p className="text-[11px] text-muted mt-1.5">OCR is not available. The image is not analyzed for text or suspicious content.</p>
+                <p className="text-[11px] text-muted mt-1.5">This detail-panel upload stores image metadata only. Use “Analyze an Image with OCR” from the scan start screen to extract and review text.</p>
                 {imageMetadata?.advertisementId === selected.id && (
                   <div className="mt-2 bg-surface-2 rounded-lg p-2.5 text-[11px] text-muted break-all">
                     <p className="font-semibold text-navy">{imageMetadata.metadata.fileName} · {imageMetadata.metadata.mimeType}</p>
@@ -757,7 +760,7 @@ export default function AdvertisementAnalysis() {
             <label className="text-xs font-semibold text-muted block mb-1">Investigator notes</label>
             <textarea className="textarea min-h-24 text-sm" value={evidenceNotes} onChange={event => setEvidenceNotes(event.target.value)} placeholder="Add context or next steps; this is not source evidence." />
           </div>
-          <p className="text-[11px] text-muted">SHA-256 verifies file identity only; it does not prove the original advertisement is authentic. OCR is not supported.</p>
+          <p className="text-[11px] text-muted">SHA-256 verifies file identity only; it does not prove the original advertisement is authentic. OCR evidence is captured through the upload-first image workflow.</p>
           <div className="flex justify-end gap-2 pt-2 border-t border-border">
             <button type="button" onClick={() => setEvidenceModal(false)} className="btn-secondary">Cancel</button>
             <button type="button" onClick={handleCreateEvidence} className="btn-primary">Create Evidence</button>
@@ -765,6 +768,7 @@ export default function AdvertisementAnalysis() {
         </div>
       </Modal>
       <AdvertisementIngestion open={ingestionOpen} onClose={() => setIngestionOpen(false)} onImported={() => setScanStarted(true)} />
+      <OcrAdvertisementScanner open={ocrOpen} onClose={() => setOcrOpen(false)} onAnalyzed={id => { setScanStarted(true); setSelectedId(id); setSearchParams({ id }); }} />
     </AppShell>
   );
 }
