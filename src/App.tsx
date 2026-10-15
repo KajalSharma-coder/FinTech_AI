@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AppProvider } from './context/AppContext';
+import { ThemeProvider } from './context/ThemeContext';
 import Dashboard from './pages/Dashboard';
 import AdvertisementAnalysis from './pages/AdvertisementAnalysis';
 import Investigations from './pages/Investigations';
@@ -11,29 +12,32 @@ import Alerts from './pages/Alerts';
 export default function App() {
   return (
     <BrowserRouter>
-      <AppProvider>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/advertisements" element={<AdvertisementAnalysis />} />
-          <Route path="/investigations" element={<Investigations />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/evidence" element={<EvidenceVault />} />
-          <Route path="/alerts" element={<Alerts />} />
-          {/* Catch-all */}
-          <Route path="*" element={<Dashboard />} />
-        </Routes>
-        <Toaster
-          position="bottom-right"
-          toastOptions={{
-            style: {
-              fontFamily: 'Inter, system-ui, sans-serif',
-              fontSize: '13px',
-              borderRadius: '10px',
-              border: '1px solid #e2e8f0',
-            },
-          }}
-        />
-      </AppProvider>
+      <ThemeProvider>
+        <AppProvider>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/advertisements" element={<AdvertisementAnalysis />} />
+            <Route path="/investigations" element={<Investigations />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/evidence" element={<EvidenceVault />} />
+            <Route path="/alerts" element={<Alerts />} />
+            <Route path="*" element={<Dashboard />} />
+          </Routes>
+          <Toaster
+            position="bottom-right"
+            toastOptions={{
+              style: {
+                fontFamily: 'Inter, system-ui, sans-serif',
+                fontSize: '13px',
+                borderRadius: '10px',
+                border: '1px solid var(--color-border)',
+                background: 'var(--color-surface)',
+                color: 'var(--color-navy)',
+              },
+            }}
+          />
+        </AppProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

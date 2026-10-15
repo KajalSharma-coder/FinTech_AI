@@ -10,6 +10,7 @@ import {
 } from '../lib/storage';
 import { findRelatedAdvertisements } from '../lib/relatedAds';
 import { generateAlerts, reconcileAlerts } from '../lib/alerts';
+import { loadBackendWorkspaceSnapshot, saveBackendWorkspace, type BackendWorkspace } from '../lib/backend';
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
@@ -23,6 +24,7 @@ interface AppState {
 
 type Action =
   | { type: 'SET_INVESTIGATIONS'; payload: Investigation[] }
+  | { type: 'HYDRATE_BACKEND'; payload: BackendWorkspace }
   | { type: 'ADD_INVESTIGATION'; payload: Investigation }
   | { type: 'UPDATE_INVESTIGATION'; payload: Investigation }
   | { type: 'DELETE_INVESTIGATION'; payload: string }
@@ -35,6 +37,12 @@ type Action =
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
+    case 'HYDRATE_BACKEND': {
+      const statuses = action.payload.advertisementStatuses;
+      const importedAdvertisements = action.payload.importedAdvertisements.map(ad => ({ ...ad, status: statuses[ad.id] ?? ad.status }));
+      const allAdvertisements = [...advertisements, ...importedAdvertisements].map(ad => ({ ...ad, status: statuses[ad.id] ?? ad.status }));
+      return { ...state, advertisements: allAdvertisements, importedAdvertisements, investigations: action.payload.investigations, evidence: action.payload.evidence, alerts: action.payload.alerts };
+    }
     case 'SET_INVESTIGATIONS':
       return { ...state, investigations: action.payload };
     case 'ADD_INVESTIGATION':
@@ -84,6 +92,9 @@ function reducer(state: AppState, action: Action): AppState {
 
 interface AppContextValue {
   state: AppState;
+  backendLive: boolean;
+  lastSyncedAt: string | null;
+  refreshWorkspace: () => Promise<void>;
   addInvestigation: (inv: Investigation) => void;
   updateInvestigation: (inv: Investigation) => void;
   deleteInvestigation: (id: string) => void;
@@ -130,6 +141,59 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const canPersistEvidence = useRef(initialState.canPersistEvidence);
   const canPersistAlerts = useRef(initialState.canPersistAlerts);
   const [state, dispatch] = useReducer(reducer, initialState);
+  const [backendReady, setBackendReady] = useState(false);
+  const [backendLive, setBackendLive] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const backendUpdatedAt = useRef<string | null>(null);
+  const backendSyncQueue = useRef<Promise<void>>(Promise.resolve());
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const snapshot = await loadBackendWorkspaceSnapshot();
+        if (cancelled) return;
+        backendUpdatedAt.current = snapshot.updatedAt;
+        setLastSyncedAt(snapshot.updatedAt);
+        setBackendLive(true);
+        if (snapshot.state) {
+          dispatch({ type: 'HYDRATE_BACKEND', payload: snapshot.state });
+        } else {
+          const statuses = Object.fromEntries(state.advertisements.map(ad => [ad.id, ad.status]));
+          await saveBackendWorkspace({ importedAdvertisements: state.importedAdvertisements, investigations: state.investigations, evidence: state.evidence, alerts: state.alerts, advertisementStatuses: statuses });
+        }
+      } catch (error) {
+        setBackendLive(false);
+        console.warn('TRACE//FIN backend unavailable; using browser-local persistence for this session.', error);
+      } finally {
+        if (!cancelled) setBackendReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+    // Initial state is intentionally captured once for backend bootstrap.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!backendReady) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const snapshot = await loadBackendWorkspaceSnapshot();
+        if (cancelled) return;
+        setBackendLive(true);
+        if (snapshot.updatedAt && snapshot.updatedAt !== backendUpdatedAt.current && snapshot.state) {
+          backendUpdatedAt.current = snapshot.updatedAt;
+          setLastSyncedAt(snapshot.updatedAt);
+          dispatch({ type: 'HYDRATE_BACKEND', payload: snapshot.state });
+        }
+      } catch {
+        if (!cancelled) setBackendLive(false);
+      }
+    };
+    const interval = window.setInterval(poll, 5000);
+    return () => { cancelled = true; window.clearInterval(interval); };
+  }, [backendReady]);
 
   useEffect(() => {
     if (canPersistInvestigations.current) saveInvestigations(state.investigations);
@@ -152,6 +216,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (canPersistAlerts.current) saveAlerts(state.alerts);
   }, [state.alerts]);
+
+  useEffect(() => {
+    if (!backendReady) return;
+    const advertisementStatuses = Object.fromEntries(state.advertisements.map(ad => [ad.id, ad.status]));
+    const snapshot: BackendWorkspace = { importedAdvertisements: state.importedAdvertisements, investigations: state.investigations, evidence: state.evidence, alerts: state.alerts, advertisementStatuses };
+    backendSyncQueue.current = backendSyncQueue.current
+      .catch(() => undefined)
+      .then(() => saveBackendWorkspace(snapshot))
+      .then(updatedAt => {
+        if (updatedAt) {
+          backendUpdatedAt.current = updatedAt;
+          setLastSyncedAt(updatedAt);
+          setBackendLive(true);
+        }
+      })
+      .catch(error => console.warn('TRACE//FIN could not sync workspace to backend.', error));
+  }, [backendReady, state.advertisements, state.importedAdvertisements, state.investigations, state.evidence, state.alerts]);
+
+  async function refreshWorkspace() {
+    try {
+      const snapshot = await loadBackendWorkspaceSnapshot();
+      setBackendLive(true);
+      if (snapshot.updatedAt && snapshot.updatedAt !== backendUpdatedAt.current && snapshot.state) {
+        backendUpdatedAt.current = snapshot.updatedAt;
+        setLastSyncedAt(snapshot.updatedAt);
+        dispatch({ type: 'HYDRATE_BACKEND', payload: snapshot.state });
+      }
+    } catch {
+      setBackendLive(false);
+    }
+  }
 
   function addInvestigation(inv: Investigation) {
     canPersistInvestigations.current = true;
@@ -209,7 +304,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AppContext.Provider value={{ state, addInvestigation, updateInvestigation, deleteInvestigation, addImportedAdvertisements, updateAdStatus, addEvidence, updateEvidence, updateAlertStatus, linkAlertToInvestigation, markAlertRead }}>
+    <AppContext.Provider value={{ state, backendLive, lastSyncedAt, refreshWorkspace, addInvestigation, updateInvestigation, deleteInvestigation, addImportedAdvertisements, updateAdStatus, addEvidence, updateEvidence, updateAlertStatus, linkAlertToInvestigation, markAlertRead }}>
       {children}
     </AppContext.Provider>
   );

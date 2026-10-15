@@ -4,7 +4,7 @@ TRACE//FIN is a browser-based financial threat intelligence demonstrator for ide
 
 ## Problem statement
 
-Financial crime indicators are often distributed across social platforms and underground forums. Analysts need a fast way to review suspicious listings, understand why a listing is risky, track related investigations, and communicate findings. TRACE//FIN demonstrates that workflow using explainable local analysis and synthetic data without requiring a backend or external service credentials.
+Financial crime indicators are often distributed across social platforms and underground forums. Analysts need a fast way to review suspicious listings, understand why a listing is risky, track related investigations, and communicate findings. TRACE//FIN demonstrates that workflow using explainable local analysis, synthetic data, and an optional PostgreSQL-backed local workspace. No external service credentials are required.
 
 ## Features
 
@@ -14,6 +14,7 @@ Financial crime indicators are often distributed across social platforms and und
 - Linking advertisements to existing or new investigations with duplicate-link protection.
 - Reports with summary statistics, risk/category visualizations, expandable findings, and print-friendly export.
 - CSV export for filtered advertisement records.
+- Optional Node.js API with PostgreSQL persistence for imported advertisements, investigations, evidence, alerts, and advertisement status overrides.
 - Responsive navigation with a desktop sidebar and mobile drawer.
 
 ## Application routes
@@ -35,10 +36,11 @@ Financial crime indicators are often distributed across social platforms and und
 - Recharts
 - Lucide React
 - Sonner notifications
+- Node.js `node:http` and PostgreSQL via `pg` for the optional backend
 
 ## Installation and development
 
-Requirements: Node.js and npm.
+Requirements: Node.js 22.9+, npm, and PostgreSQL 14+.
 
 ```bash
 npm install
@@ -46,6 +48,20 @@ npm run dev
 ```
 
 Open the local Vite URL shown in the terminal, normally `http://localhost:5173`.
+
+Configure PostgreSQL in a local `.env` file using `.env.example`, initialize the schema, and use two terminals:
+
+```bash
+npm run db:init
+
+# Terminal 1
+npm run server
+
+# Terminal 2
+npm run dev
+```
+
+The API listens at `http://localhost:4000`. Check it with `http://localhost:4000/api/health`. Vite proxies `/api` requests to the API. If the API is unavailable, the application continues using its existing browser `localStorage` persistence for the session.
 
 ## Production build and preview
 
@@ -66,7 +82,7 @@ Risk analysis is intended for demonstration and analyst review. It is not a mach
 
 The application uses a static synthetic advertisement dataset and seeded investigation records. No real social-media feed is queried. Advertisement risk scores and explanations are generated locally from the synthetic records.
 
-Investigation records and advertisement status overrides are stored in browser `localStorage`. Storage is scoped to the browser origin and is not shared between users, devices, or browsers. Malformed investigation storage is ignored safely without automatically overwriting the original raw value; valid records are preserved and invalid records are discarded during normalization.
+When the backend is running, imported advertisements, investigations, evidence, alerts, and advertisement status overrides are synchronized to PostgreSQL. The static synthetic dataset remains part of the frontend and is not duplicated into the database. Browser `localStorage` remains the fallback and is scoped to the browser origin. Malformed investigation storage is ignored safely without automatically overwriting the original raw value; valid records are preserved and invalid records are discarded during normalization.
 
 ## Hackathon demonstration workflow
 
@@ -79,20 +95,27 @@ Investigation records and advertisement status overrides are stored in browser `
 7. Filter the advertisement list and export the filtered records as CSV.
 8. Finish on Reports and use “Print / Save as PDF” for a presentation-ready summary.
 
-## Known limitations
+## Backend limitations
 
-- Advertisements are synthetic demonstration records; there is no real-time social-media or dark-web monitoring.
-- There is no backend, server-side database, multi-user synchronization, or authentication.
-- `localStorage` persistence is local to one browser profile and can be cleared by the user or browser policies.
-- The rule-based score is explainable but simplified and should not be treated as a production fraud decision system.
-- External source URLs are illustrative links and are not guaranteed to be available.
-- Browser/device smoke testing should be completed before a live presentation.
+The included backend is a single-workspace local demonstration API. It has no authentication, authorization, multi-user conflict handling, migrations, backups, or production deployment hardening. Do not expose it to the public internet without adding those controls.
 
 ## Available npm scripts
 
 ```bash
-npm run dev      # Start the Vite development server
+npm run dev      # Start the Vite frontend
+npm run server   # Start the Node.js API and PostgreSQL backend
+npm run db:init   # Create PostgreSQL tables and indexes
+npm run db:migrate:sqlite # One-time, explicit SQLite import
 npm run build    # Type-check and create a production build
 npm run lint     # Run Oxlint
 npm run preview  # Preview the production build locally
 ```
+
+## Known limitations
+
+- Advertisements are synthetic demonstration records; there is no real-time social-media or dark-web monitoring.
+- The backend is a single-workspace local API without authentication, authorization, or multi-user conflict handling.
+- `localStorage` persistence is local to one browser profile and can be cleared by the user or browser policies.
+- The rule-based score is explainable but simplified and should not be treated as a production fraud decision system.
+- External source URLs are illustrative links and are not guaranteed to be available.
+- Browser/device smoke testing should be completed before a live presentation.

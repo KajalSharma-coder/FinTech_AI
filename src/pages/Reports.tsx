@@ -153,7 +153,7 @@ ${report.keyFindings.map((f, i) => `${i + 1}. ${f}`).join('\n')}
 }
 
 export default function Reports() {
-  const { state } = useApp();
+  const { state, backendLive, lastSyncedAt } = useApp();
   const [generatedAt] = useState(() => new Date().toISOString());
   const currentReport = useMemo<Report>(() => {
     const categoryCounts = new Map<AdCategory, number>();
@@ -193,8 +193,13 @@ export default function Reports() {
 
   return (
     <AppShell title="Reports" subtitle="Current workspace analytics and synthetic demonstration history">
-      <div className="bg-accent-light border border-accent-mid rounded-lg px-4 py-3 mb-6 text-sm text-navy-3">
-        <span className="font-semibold text-navy">Demo data notice:</span> current metrics combine synthetic records and any records imported into this browser. This prototype does not provide live monitoring.
+      <div className="bg-accent-light border border-accent-mid rounded-lg px-4 py-3 mb-6 text-sm text-navy-3 flex items-center justify-between gap-4">
+        <span><span className="font-semibold text-navy">Live workspace monitoring:</span> metrics refresh automatically every 5 seconds from the connected workspace.</span>
+        <span className="flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold">
+          <span className={`w-2 h-2 rounded-full ${backendLive ? 'bg-low' : 'bg-muted-2'}`} />
+          {backendLive ? 'Connected' : 'Local only'}
+          {lastSyncedAt && <span className="hidden lg:inline text-muted">· {new Date(lastSyncedAt).toLocaleTimeString()}</span>}
+        </span>
       </div>
       {/* Summary stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
