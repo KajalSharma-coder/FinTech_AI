@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { createPool, closePool, initializeSchema } from './db.mjs';
 import { readWorkspace, synchronizeWorkspace, validateWorkspaceState } from './state.mjs';
 
-const PORT = Number(process.env.API_PORT || 4000);
+const PORT = Number(process.env.PORT || process.env.API_PORT || 4000);
 const send = (res, status, body) => {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || 'http://localhost:5173', 'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Cache-Control': 'no-store' });
   res.end(JSON.stringify(body));
